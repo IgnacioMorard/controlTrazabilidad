@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Escanear Bidones</title>
+  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 1em;
+      background: #f9fafb;
+      color: #333;
+      text-align: center;
+    }
+    h1 { color: #2c3e50; font-size: clamp(22px, 5vw, 34px); margin-bottom: 10px; }
+    label { display: block; margin: 10px 0 5px; text-align: left; }
+    input, select {
+      padding: 12px;
+      width: 100%;
+      max-width: 350px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+    #qr-reader {
+      width: 100%;
+      max-width: 360px;
+      margin: 15px auto;
+    }
+    .msg { margin-top: 10px; font-weight: bold; }
+    .ok { color: #27ae60; }
+    .error { color: #e74c3c; }
+    .nav-btn {
+      display:inline-block;
+      margin-top:20px;
+      padding:12px 18px;
+      background:#8e44ad;
+      color:#fff;
+      border-radius:10px;
+      text-decoration:none;
+      font-size:16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>📷 Escaneo Rápido de Bidones</h1>
+
+  <label for="email">Tu correo (obligatorio):</label>
+  <input type="email" id="email" placeholder="ejemplo@correo.com">
+
+  <label for="operacion">Operación:</label>
+  <select id="operacion">
+    <option value="Entrada">Entrada</option>
+    <option value="Salida">Salida</option>
+  </select>
+
+  <div id="qr-reader"></div>
+  <div id="mensaje" class="msg"></div>
+
+  <a href="index.html" class="nav-btn">🏠 Volver al Menú Principal</a>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbzAEGG01rKGr-YqNNQjoue_7gMt8LNgqhP6mj4VC9JYI7-lmfties5GsC50K8Z8N3vu_A/exec"; // ⚡ tu URL del WebApp
+
+    // Recuperar email guardado
+    window.onload = () => {
+      const savedEmail = localStorage.getItem("usuarioEmail");
+      if (savedEmail) {
+        document.getElementById("email").value = savedEmail;
+      }
+    };
+
+    // Guardar email en localStorage al cambiar
+    document.getElementById("email").addEventListener("change", () => {
+      const email = document.getElementById("email").value.trim();
+      if (email) {
+        localStorage.setItem("usuarioEmail", email);
+      }
+    });
+
+    const html5QrCode = new Html5Qrcode("qr-reader");
+
+    function startScanner() {
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: 250 },
+        async (decodedText) => {
+          const email = document.getElementById("email").value.trim();
+          const operacion = document.getElementById("operacion").value;
+          const msgDiv = document.getElementById("mensaje");
+
+          if (!email) {
+            msgDiv.innerHTML = "<p class='error'>⚠️ Debes ingresar tu correo antes de escanear.</p>";
+            return;
+          }
+
+          if (!/^\d+$/.test(decodedText)) {
+            msgDiv.innerHTML = "<p class='error'>⚠️ El QR no contiene un número válido de bidón.</p>";
+            return;
+          }
+
+          localStorage.setItem("usuarioEmail", email);
+
+          try {
+            const resp = await fetch(API_URL, {
+              method: "POST",
+              body: JSON.stringify({
+                id_bidon: decodedText,
+                tipo_movimiento: operacion,
+                usuario: email
+              })
+            });
+
+            const result = await resp.json();
+
+            if (result.ok) {
+              msgDiv.innerHTML = `<p class='ok'>✅ Bidón ${decodedText} registrado como ${operacion}</p>`;
+            } else {
+              msgDiv.innerHTML = `<p class='error'>❌ ${result.error}</p>`;
+            }
+          } catch (e) {
+            msgDiv.innerHTML = "<p class='error'>⚠️ Error al conectar con el servidor.</p>";
+          }
+        },
+        (err) => console.log("Escaneo fallido:", err)
+      ).catch(err => {
+        document.getElementById("mensaje").innerHTML = "<p class='error'>⚠️ No se pudo acceder a la cámara.</p>";
+        console.error("Error al iniciar cámara:", err);
+      });
+    }
+
+    startScanner();
+  </script>
+</body>
+</html>
