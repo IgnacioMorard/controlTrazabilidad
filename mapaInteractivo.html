@@ -9,10 +9,29 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
   <style>
     body { margin:0; font-family:sans-serif; }
-    #map { height: 100vh; width: 100vw; }
+    #map { height: 90vh; width: 100vw; }
+    #filtros {
+      padding:10px;
+      background:#f4f4f4;
+      border-bottom:1px solid #ccc;
+      font-size:14px;
+    }
+    #filtros input, #filtros select {
+      margin:4px;
+      padding:4px;
+    }
   </style>
 </head>
 <body>
+  <div id="filtros">
+    <label>Fecha desde: <input type="date" id="fDesde"></label>
+    <label>Fecha hasta: <input type="date" id="fHasta"></label>
+    <label>Usuario: <input type="text" id="fUsuario" placeholder="ej: juan@example.com"></label>
+    <label>Hora desde: <input type="time" id="hDesde"></label>
+    <label>Hora hasta: <input type="time" id="hHasta"></label>
+    <button onclick="cargarDatos()">Aplicar filtros</button>
+  </div>
+
   <div id="map"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -37,6 +56,11 @@
       const csvText = await resp.text();
 
       const puntos = [];
+      const fDesde = document.getElementById("fDesde").value;
+      const fHasta = document.getElementById("fHasta").value;
+      const fUsuario = document.getElementById("fUsuario").value.trim().toLowerCase();
+      const hDesde = document.getElementById("hDesde").value;
+      const hHasta = document.getElementById("hHasta").value;
 
       Papa.parse(csvText, {
         header: true,
@@ -48,6 +72,19 @@
 
             const coords = row.Ubicación.split(",").map(Number);
             if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+
+            // Filtros
+            const fecha = new Date(row.FechaHora);
+            if (fDesde && fecha < new Date(fDesde)) return;
+            if (fHasta && fecha > new Date(fHasta + "T23:59:59")) return;
+
+            if (fUsuario && !row.Usuario.toLowerCase().includes(fUsuario)) return;
+
+            if (hDesde || hHasta) {
+              const hora = fecha.toTimeString().substring(0,5); // hh:mm
+              if (hDesde && hora < hDesde) return;
+              if (hHasta && hora > hHasta) return;
+            }
 
             const marker = L.marker([coords[0], coords[1]])
               .bindPopup(`
@@ -61,11 +98,10 @@
             puntos.push([coords[0], coords[1]]);
           });
 
-          // Ajustar vista a todos los puntos
           if (puntos.length > 0) {
             map.fitBounds(puntos);
           } else {
-            map.setView([-34.6, -58.4], 5); // vista por defecto (Argentina)
+            map.setView([-34.6, -58.4], 12);
           }
         }
       });
