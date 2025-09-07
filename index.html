@@ -43,7 +43,7 @@
 <body>
   <h1>Entrega de Bidón</h1>
 
-  <input type="email" id="email" placeholder="Tu correo (obligatorio)" />
+  <input type="text" id="email" placeholder="Tu nombre o correo (obligatorio)" />
   <br>
   <input type="number" id="codigo" placeholder="Código de bidón" />
   <br>
@@ -72,12 +72,13 @@
     let coords = {lat:null, lon:null};
     let scannerActive = false;
 
-    // Guardar y recuperar email en localStorage
+    // Recuperar email guardado
     document.addEventListener("DOMContentLoaded", () => {
       const savedEmail = localStorage.getItem("usuarioEmail");
       if (savedEmail) document.getElementById("email").value = savedEmail;
     });
 
+    // Guardar email/nombre en localStorage al cambiar
     document.getElementById("email").addEventListener("change", () => {
       const email = document.getElementById("email").value.trim();
       if (email) localStorage.setItem("usuarioEmail", email);
@@ -130,8 +131,8 @@
       const msgDiv = document.getElementById("mensaje");
       msgDiv.innerHTML = "";
 
-      if (!email || !/^[^\\s@]+@[^s@]+\\.[^s@]+$/.test(email)) {
-        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá un correo válido.</p>"; 
+      if (!email) {
+        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá tu nombre o correo.</p>"; 
         return;
       }
       if (!codigo) {
@@ -147,7 +148,6 @@
 
     function cerrarModal() {
       document.getElementById("modal").style.display = "none";
-      // Si el escáner estaba activo antes, reanudar
       if (scannerActive && html5QrCode) {
         const qrReader = document.getElementById("qr-reader");
         qrReader.style.display = "block";
@@ -162,8 +162,6 @@
                 abrirConfirmacion();
               });
               scannerActive = false;
-            } else {
-              alert("⚠️ QR inválido");
             }
           }
         ).catch(err => console.error("Error cámara:", err));
@@ -182,6 +180,8 @@
 
       const movimiento = "Entregado";
       const ubicacion = `${coords.lat || ""},${coords.lon || ""}`;
+
+      // Construir querystring (GET)
       const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}&ubicacion=${encodeURIComponent(ubicacion)}`;
 
       try {
@@ -191,7 +191,7 @@
         msgDiv.innerHTML = `<p class="ok">${text}</p>`;
         document.getElementById("codigo").value = "";
 
-        // Si estaba en modo escaneo, reanudar
+        // Reanudar escaneo si estaba activo
         if (scannerActive && html5QrCode) {
           const qrReader = document.getElementById("qr-reader");
           qrReader.style.display = "block";
@@ -212,7 +212,7 @@
         }
 
       } catch(err) {
-        console.error(err);
+        console.error("Fetch error:", err);
         msgDiv.innerHTML = `<p class='error'>❌ Error en fetch: ${err.message}</p>`;
       } finally {
         toggleButtons(false);
