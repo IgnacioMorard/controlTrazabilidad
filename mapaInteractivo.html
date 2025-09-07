@@ -15,21 +15,42 @@
       background:#f4f4f4;
       border-bottom:1px solid #ccc;
       font-size:14px;
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:center;
+    }
+    #filtros label {
+      display:flex;
+      align-items:center;
+      gap:4px;
     }
     #filtros input, #filtros select {
-      margin:4px;
       padding:4px;
     }
+    button {
+      padding:6px 12px;
+      border:none;
+      border-radius:4px;
+      cursor:pointer;
+    }
+    #btnAplicar { background:#1f6feb; color:#fff; }
+    #btnReset { background:#aaa; color:#fff; }
   </style>
 </head>
 <body>
   <div id="filtros">
     <label>Fecha desde: <input type="date" id="fDesde"></label>
     <label>Fecha hasta: <input type="date" id="fHasta"></label>
-    <label>Usuario: <input type="text" id="fUsuario" placeholder="ej: juan@example.com"></label>
+    <label>Usuario:
+      <select id="fUsuario">
+        <option value="">-- Todos --</option>
+      </select>
+    </label>
     <label>Hora desde: <input type="time" id="hDesde"></label>
     <label>Hora hasta: <input type="time" id="hHasta"></label>
-    <button onclick="cargarDatos()">Aplicar filtros</button>
+    <button id="btnAplicar" onclick="cargarDatos()">Aplicar filtros</button>
+    <button id="btnReset" onclick="resetFiltros()">Limpiar</button>
   </div>
 
   <div id="map"></div>
@@ -49,65 +70,103 @@
     const markers = L.markerClusterGroup();
     map.addLayer(markers);
 
-    async function cargarDatos() {
-      markers.clearLayers();
+    let allRows = []; // guardamos todos los datos para reutilizar
 
+    async function fetchDatos() {
       const resp = await fetch(CSV_URL);
       const csvText = await resp.text();
-
-      const puntos = [];
-      const fDesde = document.getElementById("fDesde").value;
-      const fHasta = document.getElementById("fHasta").value;
-      const fUsuario = document.getElementById("fUsuario").value.trim().toLowerCase();
-      const hDesde = document.getElementById("hDesde").value;
-      const hHasta = document.getElementById("hHasta").value;
-
-      Papa.parse(csvText, {
-        header: true,
-        skipEmptyLines: true,
-        complete: results => {
-          results.data.forEach(row => {
-            if (row.TipoMovimiento !== "Entregado") return;
-            if (!row.Ubicación) return;
-
-            const coords = row.Ubicación.split(",").map(Number);
-            if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
-
-            // Filtros
-            const fecha = new Date(row.FechaHora);
-            if (fDesde && fecha < new Date(fDesde)) return;
-            if (fHasta && fecha > new Date(fHasta + "T23:59:59")) return;
-
-            if (fUsuario && !row.Usuario.toLowerCase().includes(fUsuario)) return;
-
-            if (hDesde || hHasta) {
-              const hora = fecha.toTimeString().substring(0,5); // hh:mm
-              if (hDesde && hora < hDesde) return;
-              if (hHasta && hora > hHasta) return;
-            }
-
-            const marker = L.marker([coords[0], coords[1]])
-              .bindPopup(`
-                <b>${row.TipoMovimiento}</b><br>
-                Bidón: ${row.CodigoBidon}<br>
-                Usuario: ${row.Usuario}<br>
-                Fecha: ${row.FechaHora}
-              `);
-
-            markers.addLayer(marker);
-            puntos.push([coords[0], coords[1]]);
-          });
-
-          if (puntos.length > 0) {
-            map.fitBounds(puntos);
-          } else {
-            map.setView([-34.6, -58.4], 12);
-          }
-        }
+      return new Promise(resolve => {
+        Papa.parse(csvText, {
+          header: true,
+          skipEmptyLines: true,
+          complete: results => resolve(results.data)
+        });
       });
     }
 
-    cargarDatos();
+    function popularUsuarios() {
+      const sel = document.getElementById("fUsuario");
+      sel.innerHTML = `<option value="">-- Todos --</option>`;
+      const usuarios = [...new Set(allRows.map(r => r.Usuario).filter(Boolean))];
+      usuarios.sort().forEach(u => {
+        const opt = document.createElement("option");
+        opt.value = u;
+        opt.textContent = u;
+        sel.appendChild(opt);
+      });
+    }
+
+    function cargarDatos() {
+      markers.clearLayers();
+      const puntos = [];
+
+      const fDesde = document.getElementById("fDesde").value;
+      const fHasta = document.getElementById("fHasta").value;
+      const fUsuario = document.getElementById("fUsuario").value;
+      const hDesde = document.getElementById("hDesde").value;
+      const hHasta = document.getElementById("hHasta").value;
+
+      allRows.forEach(row => {
+        if (row.TipoMovimiento !== "Entregado") return;
+        if (!row.Ubicación) return;
+
+        const coords = row.Ubicación.split(",").map(Number);
+        if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+
+        const fecha = new Date(row.FechaHora);
+        if (isNaN(fecha)) return;
+
+        // filtros
+        if (fDesde && fecha < new Date(fDesde)) return;
+        if (fHasta && fecha > new Date(fHasta + "T23:59:59")) return;
+        if (fUsuario && row.Usuario !== fUsuario) return;
+
+        if (hDesde) {
+          const [h,m] = hDesde.split(":").map(Number);
+          const desdeMin = h*60+m;
+          const actualMin = fecha.getHours()*60+fecha.getMinutes();
+          if (actualMin < desdeMin) return;
+        }
+        if (hHasta) {
+          const [h,m] = hHasta.split(":").map(Number);
+          const hastaMin = h*60+m;
+          const actualMin = fecha.getHours()*60+fecha.getMinutes();
+          if (actualMin > hastaMin) return;
+        }
+
+        const marker = L.marker([coords[0], coords[1]])
+          .bindPopup(`
+            <b>${row.TipoMovimiento}</b><br>
+            Bidón: ${row.CodigoBidon}<br>
+            Usuario: ${row.Usuario}<br>
+            Fecha: ${row.FechaHora}
+          `);
+
+        markers.addLayer(marker);
+        puntos.push([coords[0], coords[1]]);
+      });
+
+      if (puntos.length > 0) {
+        map.fitBounds(puntos);
+      } else {
+        map.setView([-34.6, -58.4], 12);
+      }
+    }
+
+    function resetFiltros() {
+      document.getElementById("fDesde").value = "";
+      document.getElementById("fHasta").value = "";
+      document.getElementById("fUsuario").value = "";
+      document.getElementById("hDesde").value = "";
+      document.getElementById("hHasta").value = "";
+      cargarDatos();
+    }
+
+    (async () => {
+      allRows = await fetchDatos();
+      popularUsuarios();
+      cargarDatos();
+    })();
   </script>
 </body>
 </html>
