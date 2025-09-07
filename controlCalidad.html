@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Control de Calidad - Bidón</title>
+  <title>Control de Calidad</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     body {
@@ -41,7 +41,7 @@
   </style>
 </head>
 <body>
-  <h1>Retorno a Planta de Bidón - Control de Calidad</h1>
+  <h1>Control de Calidad</h1>
 
   <input type="text" id="email" placeholder="Tu nombre o correo (obligatorio)" />
   <br>
@@ -49,8 +49,8 @@
   <br>
   <select id="movimiento">
     <option value="">-- Seleccioná movimiento --</option>
-    <option value="Rectificado">Rectificado</option>
-    <option value="Descartado">Descartado</option>
+    <option value="Descartado">En Planta</option>
+    <option value="Rectificado">Dañado</option>
   </select>
   <br>
   <button id="btnScan" class="btn-scan" onclick="iniciarEscaneo()">📷 Escanear QR</button>
@@ -72,13 +72,13 @@
 
   <script>
     // ⚡ Pega aquí tu URL del WebApp (termina en /exec)
-    const API_URL = "https://script.google.com/macros/s/AKfycbxvfQ3ubZKgy4a1LgPl9oepx0ey_ABC/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzxfZFCMCEGRSt36k-m50Xpr0N-kw4SfQ_PcWRHTEBWVpqEnLlnotw9dGK8wOhfRhUXmA/exec";
 
     let html5QrCode = null;
     let scannerActive = false;
     let movimientoSel = "";
 
-    // Cargar email guardado
+    // Recuperar email guardado
     document.addEventListener("DOMContentLoaded", () => {
       const savedEmail = localStorage.getItem("usuarioEmail");
       if (savedEmail) document.getElementById("email").value = savedEmail;
@@ -90,13 +90,11 @@
     });
 
     function iniciarEscaneo() {
-      if (scannerActive) return; // evita múltiples inicios
-      scannerActive = true;
-
       const qrReader = document.getElementById("qr-reader");
       qrReader.style.display = "block";
-
       if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+
+      scannerActive = true;
 
       html5QrCode.start(
         { facingMode:"environment" },
@@ -116,7 +114,6 @@
       ).catch(err => {
         console.error("Error cámara:", err);
         qrReader.innerHTML = "<p class='error'>⚠️ No se pudo acceder a la cámara</p>";
-        scannerActive = false;
       });
     }
 
@@ -150,13 +147,10 @@
       document.getElementById("modalBidon").textContent = "#" + codigo;
       document.getElementById("modalMov").textContent = movimiento;
       document.getElementById("modal").style.display = "flex";
-      toggleButtons(true); // bloquea botones mientras está el modal
     }
 
     function cerrarModal() {
       document.getElementById("modal").style.display = "none";
-      document.getElementById("codigo").value = "";
-      toggleButtons(false);
       if (scannerActive && html5QrCode) {
         const qrReader = document.getElementById("qr-reader");
         qrReader.style.display = "block";
@@ -180,12 +174,13 @@
     async function confirmar() {
       const email = document.getElementById("email").value.trim();
       const codigo = document.getElementById("codigo").value.trim();
-      const movimiento = movimientoSel;
       const msgDiv = document.getElementById("mensaje");
 
       toggleButtons(true);
-      document.getElementById("modal").style.display = "none";
+      cerrarModal();
       msgDiv.textContent = "⏳ Enviando...";
+
+      const movimiento = movimientoSel;
 
       const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}`;
 
@@ -200,9 +195,6 @@
         msgDiv.innerHTML = `<p class='error'>❌ Error en fetch: ${err.message}</p>`;
       } finally {
         toggleButtons(false);
-        if (scannerActive && html5QrCode) {
-          iniciarEscaneo(); // reanudar escaneo si estaba activo
-        }
       }
     }
 
