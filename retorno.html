@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Retorno a Planta de Bidón</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    body {
+      font-family: sans-serif;
+      background:#f9fafb;
+      margin:0; padding:20px;
+      text-align:center;
+      color:#333;
+    }
+    h1 { margin-bottom:20px; }
+    input, select {
+      padding:12px; margin:10px 0;
+      width:100%; max-width:350px;
+      border:1px solid #ccc; border-radius:6px;
+      font-size:16px;
+    }
+    button {
+      padding:14px 22px; border:none; border-radius:8px;
+      font-size:18px; cursor:pointer; margin:10px;
+    }
+    button:disabled { opacity:0.6; cursor:not-allowed; }
+    .btn-scan { background:#3498db; color:#fff; }
+    .btn-send { background:#27ae60; color:#fff; }
+    .error { color:#e74c3c; margin-top:10px; }
+    .ok { color:#16a34a; margin-top:10px; }
+    #qr-reader { display:none; margin:10px auto; width:100%; max-width:350px; }
+
+    /* Modal */
+    .modal {position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+    .modal-card {position:relative; background:#fff; padding:20px; border-radius:12px; text-align:center; max-width:400px; width:90%;}
+    .modal-cancel {position:absolute; top:8px; right:8px; font-size:14px; background:#ccc; border:none; border-radius:50%; padding:4px 8px; cursor:pointer;}
+    .bidon {font-size:48px; font-weight:bold; margin:20px 0;}
+    .mov {color:#27ae60; font-weight:bold; margin-bottom:20px;}
+    .btn-confirm {background:#27ae60; color:#fff; font-size:18px; padding:14px 22px; border:none; border-radius:8px; width:100%;}
+  </style>
+</head>
+<body>
+  <h1>Retorno a Planta de Bidón</h1>
+
+  <input type="text" id="email" placeholder="Tu nombre o correo (obligatorio)" />
+  <br>
+  <input type="number" id="codigo" placeholder="Código de bidón" />
+  <br>
+  <select id="movimiento">
+    <option value="">-- Seleccioná movimiento --</option>
+    <option value="En Planta">En Planta</option>
+    <option value="Dañado">Dañado</option>
+  </select>
+  <br>
+  <button id="btnScan" class="btn-scan" onclick="iniciarEscaneo()">📷 Escanear QR</button>
+  <div id="qr-reader"></div>
+  <br>
+  <button id="btnEnviar" class="btn-send" onclick="preConfirmar()">Enviar</button>
+
+  <div id="mensaje"></div>
+
+  <!-- Modal -->
+  <div id="modal" class="modal">
+    <div class="modal-card">
+      <button class="modal-cancel" onclick="cerrarModal()">✕</button>
+      <div class="bidon" id="modalBidon">#---</div>
+      <div class="mov" id="modalMov">---</div>
+      <button id="btnConfirmar" class="btn-confirm" onclick="confirmar()">Confirmar</button>
+    </div>
+  </div>
+
+  <script>
+    // ⚡ Pega aquí tu URL del WebApp (termina en /exec)
+    const API_URL = "https://script.google.com/macros/s/AKfycbzxfZFCMCEGRSt36k-m50Xpr0N-kw4SfQ_PcWRHTEBWVpqEnLlnotw9dGK8wOhfRhUXmA/exec";
+
+    let html5QrCode = null;
+    let coords = {lat:null, lon:null};
+    let scannerActive = false;
+    let movimientoSel = "";
+
+    // Recuperar email guardado
+    document.addEventListener("DOMContentLoaded", () => {
+      const savedEmail = localStorage.getItem("usuarioEmail");
+      if (savedEmail) document.getElementById("email").value = savedEmail;
+    });
+
+    document.getElementById("email").addEventListener("change", () => {
+      const email = document.getElementById("email").value.trim();
+      if (email) localStorage.setItem("usuarioEmail", email);
+    });
+
+    // Pedir ubicación
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { coords.lat = pos.coords.latitude; coords.lon = pos.coords.longitude; },
+        err => console.warn("No se pudo obtener ubicación:", err),
+        { enableHighAccuracy:true }
+      );
+    }
+
+    function iniciarEscaneo() {
+      const qrReader = document.getElementById("qr-reader");
+      qrReader.style.display = "block";
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+
+      scannerActive = true;
+
+      html5QrCode.start(
+        { facingMode:"environment" },
+        { fps:10, qrbox:250 },
+        decodedText => {
+          if (/^\d+$/.test(decodedText)) {
+            document.getElementById("codigo").value = decodedText;
+            html5QrCode.stop().then(() => {
+              qrReader.style.display = "none";
+              abrirConfirmacion(); // abre modal automáticamente
+            });
+            scannerActive = false;
+          } else {
+            alert("⚠️ QR inválido");
+          }
+        }
+      ).catch(err => {
+        console.error("Error cámara:", err);
+        qrReader.innerHTML = "<p class='error'>⚠️ No se pudo acceder a la cámara</p>";
+      });
+    }
+
+    function preConfirmar() {
+      abrirConfirmacion();
+    }
+
+    function abrirConfirmacion() {
+      const email = document.getElementById("email").value.trim();
+      const codigo = document.getElementById("codigo").value.trim();
+      const movimiento = document.getElementById("movimiento").value;
+      const msgDiv = document.getElementById("mensaje");
+      msgDiv.innerHTML = "";
+
+      if (!email) {
+        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá tu nombre o correo.</p>"; 
+        return;
+      }
+      if (!codigo) {
+        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá un código de bidón.</p>"; 
+        return;
+      }
+      if (!movimiento) {
+        msgDiv.innerHTML = "<p class='error'>⚠️ Seleccioná un tipo de movimiento.</p>"; 
+        return;
+      }
+
+      localStorage.setItem("usuarioEmail", email);
+      movimientoSel = movimiento;
+
+      document.getElementById("modalBidon").textContent = "#" + codigo;
+      document.getElementById("modalMov").textContent = movimiento;
+      document.getElementById("modal").style.display = "flex";
+    }
+
+    function cerrarModal() {
+      document.getElementById("modal").style.display = "none";
+      if (scannerActive && html5QrCode) {
+        const qrReader = document.getElementById("qr-reader");
+        qrReader.style.display = "block";
+        html5QrCode.start(
+          { facingMode:"environment" },
+          { fps:10, qrbox:250 },
+          decodedText => {
+            if (/^\d+$/.test(decodedText)) {
+              document.getElementById("codigo").value = decodedText;
+              html5QrCode.stop().then(() => {
+                qrReader.style.display = "none";
+                abrirConfirmacion();
+              });
+              scannerActive = false;
+            }
+          }
+        ).catch(err => console.error("Error cámara:", err));
+      }
+    }
+
+    async function confirmar() {
+      const email = document.getElementById("email").value.trim();
+      const codigo = document.getElementById("codigo").value.trim();
+      const msgDiv = document.getElementById("mensaje");
+
+      toggleButtons(true);
+      cerrarModal();
+      msgDiv.textContent = "⏳ Enviando...";
+
+      const movimiento = movimientoSel;
+      const ubicacion = `${coords.lat || ""},${coords.lon || ""}`;
+
+      const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}&ubicacion=${encodeURIComponent(ubicacion)}`;
+
+      try {
+        const resp = await fetch(url);
+        const text = await resp.text();
+        console.log("Respuesta cruda:", text);
+        msgDiv.innerHTML = `<p class="ok">${text}</p>`;
+        document.getElementById("codigo").value = "";
+
+        if (scannerActive && html5QrCode) {
+          const qrReader = document.getElementById("qr-reader");
+          qrReader.style.display = "block";
+          await html5QrCode.start(
+            { facingMode:"environment" },
+            { fps:10, qrbox:250 },
+            decodedText => {
+              if (/^\d+$/.test(decodedText)) {
+                document.getElementById("codigo").value = decodedText;
+                html5QrCode.stop().then(() => {
+                  qrReader.style.display = "none";
+                  abrirConfirmacion();
+                });
+                scannerActive = false;
+              }
+            }
+          );
+        }
+
+      } catch(err) {
+        console.error("Fetch error:", err);
+        msgDiv.innerHTML = `<p class='error'>❌ Error en fetch: ${err.message}</p>`;
+      } finally {
+        toggleButtons(false);
+      }
+    }
+
+    function toggleButtons(disabled) {
+      document.querySelectorAll("button").forEach(btn => {
+        btn.disabled = disabled;
+      });
+    }
+  </script>
+</body>
+</html>
