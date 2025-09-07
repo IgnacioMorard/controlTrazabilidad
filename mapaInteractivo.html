@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mapa de Bidones Entregados</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css"/>
+  <style>
+    body { margin:0; font-family:sans-serif; }
+    #map { height: 100vh; width: 100vw; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+  <script>
+    // 👉 Pegá tu URL publicada como CSV
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQqDkwsACbL8CGsWV7X8pAwtfBUmvjjPTX0ca-LwD_xE5eeEq9--FFw7Z0U62Z9fD9vuKv96KPk1ws6/pub?gid=0&single=true&output=csv";
+
+    const map = L.map('map');
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+
+    const markers = L.markerClusterGroup();
+    map.addLayer(markers);
+
+    async function cargarDatos() {
+      markers.clearLayers();
+
+      const resp = await fetch(CSV_URL);
+      const csvText = await resp.text();
+
+      const puntos = [];
+
+      Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        complete: results => {
+          results.data.forEach(row => {
+            if (row.TipoMovimiento !== "Entregado") return;
+            if (!row.Ubicación) return;
+
+            const coords = row.Ubicación.split(",").map(Number);
+            if (coords.length < 2 || isNaN(coords[0]) || isNaN(coords[1])) return;
+
+            const marker = L.marker([coords[0], coords[1]])
+              .bindPopup(`
+                <b>${row.TipoMovimiento}</b><br>
+                Bidón: ${row.CodigoBidon}<br>
+                Usuario: ${row.Usuario}<br>
+                Fecha: ${row.FechaHora}
+              `);
+
+            markers.addLayer(marker);
+            puntos.push([coords[0], coords[1]]);
+          });
+
+          // Ajustar vista a todos los puntos
+          if (puntos.length > 0) {
+            map.fitBounds(puntos);
+          } else {
+            map.setView([-34.6, -58.4], 5); // vista por defecto (Argentina)
+          }
+        }
+      });
+    }
+
+    cargarDatos();
+  </script>
+</body>
+</html>
