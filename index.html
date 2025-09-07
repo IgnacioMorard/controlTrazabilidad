@@ -64,7 +64,9 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbxvKMFKAduShnTYy9p_j0tCKvzH_eJRMY3zj7RyDdwecllfRg_sQgkOIFSj-ZOm3vJnhw/exec";
+    // ⚡ Pega tu URL del WebApp (termina en /exec)
+    const API_URL = "https://script.google.com/macros/s/TU_ID_DEPLOY/exec";
+
     let html5QrCode = null;
     let coords = {lat:null, lon:null};
 
@@ -122,41 +124,22 @@
       const email = document.getElementById("email").value.trim();
       const codigo = document.getElementById("codigo").value.trim();
       const msgDiv = document.getElementById("mensaje");
-      msgDiv.innerHTML = "⏳ Enviando...";
+      msgDiv.textContent = "⏳ Enviando...";
+
+      const movimiento = "Entregado";
+      const ubicacion = `${coords.lat || ""},${coords.lon || ""}`;
+
+      // Construir querystring
+      const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}&ubicacion=${encodeURIComponent(ubicacion)}`;
 
       try {
-        const resp = await fetch(API_URL, {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            id_bidon: codigo,
-            tipo_movimiento: "Entregado",
-            usuario: email,
-            ubicacion: `${coords.lat || ""},${coords.lon || ""}`
-          })
-        });
-
-        let text = await resp.text(); // leemos crudo primero
+        const resp = await fetch(url); // GET request
+        const text = await resp.text();
         console.log("Respuesta cruda:", text);
-
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch(parseErr) {
-          msgDiv.innerHTML = `<p class="error">❌ No se pudo parsear respuesta: ${parseErr.message}. Respuesta: ${text}</p>`;
-          return;
-        }
-
-        if (result.ok) {
-          msgDiv.innerHTML = `<p class="ok">✅ ${result.message}</p>`;
-          document.getElementById("codigo").value = "";
-        } else {
-          msgDiv.innerHTML = `<p class="error">❌ ${result.error || "Ocurrió un error"}</p>`;
-        }
-
+        msgDiv.textContent = text;
       } catch(err) {
         console.error("Fetch error:", err);
-        msgDiv.innerHTML = `<p class='error'>⚠️ Error al conectar con el servidor: ${err.message}</p>`;
+        msgDiv.textContent = "❌ Error en fetch: " + (err.message || JSON.stringify(err));
       }
     }
   </script>
