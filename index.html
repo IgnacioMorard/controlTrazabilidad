@@ -2,215 +2,147 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Entrega de Bidón</title>
-  <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+  <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
-    :root{
-      --bg:#f6f7fb; --text:#1f2937; --primary:#1f6feb; --ok:#16a34a; --err:#e11d48;
-      --muted:#6b7280; --card:#ffffff; --border:#e5e7eb; --shadow:0 8px 24px rgba(0,0,0,.08);
-      --cancel:#9ca3af;
+    body {
+      font-family: sans-serif;
+      background:#f9fafb;
+      margin:0; padding:20px;
+      text-align:center;
+      color:#333;
     }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,"Helvetica Neue",Arial,"Apple Color Emoji","Segoe UI Emoji";background:var(--bg);color:var(--text)}
-    header{padding:16px;text-align:center;background:linear-gradient(90deg,#1f6feb,#5a79ef);color:#fff}
-    header h1{margin:0;font-size:clamp(18px,4vw,24px)}
-    main{max-width:520px;margin:20px auto;padding:20px;background:var(--card);border:1px solid var(--border);border-radius:16px;box-shadow:var(--shadow)}
-    .field{margin-bottom:14px}
-    label{display:block;margin-bottom:6px;font-weight:600;color:#111827}
-    input[type="email"],input[type="text"],input[type="number"]{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font-size:16px;outline:none}
-    input:focus{border-color:var(--primary)}
-    .row{display:flex;gap:10px;align-items:center}
-    .row>*{flex:1}
-    .btn{appearance:none;border:none;border-radius:12px;padding:14px 16px;font-size:16px;cursor:pointer;transition:transform .05s ease;color:#fff;box-shadow:var(--shadow)}
-    .btn:active{transform:scale(.98)}
-    .btn-scan{background:#2563eb;white-space:nowrap}
-    .btn-entrega{background:var(--ok);width:100%}
-    .muted{color:var(--muted);font-size:14px}
-    #qr-reader{display:none;width:100%;max-width:480px;margin:10px auto 0}
-    #mensaje{margin-top:12px;min-height:24px}
-    .ok{color:var(--ok)} .error{color:var(--err)}
+    h1 { margin-bottom:20px; }
+    input {
+      padding:12px; margin:10px 0;
+      width:100%; max-width:350px;
+      border:1px solid #ccc; border-radius:6px;
+      font-size:16px;
+    }
+    button {
+      padding:14px 22px; border:none; border-radius:8px;
+      font-size:18px; cursor:pointer; margin:10px;
+    }
+    .btn-scan { background:#3498db; color:#fff; }
+    .btn-send { background:#27ae60; color:#fff; }
+    .error { color:#e74c3c; margin-top:10px; }
+    .ok { color:#27ae60; margin-top:10px; }
+    #qr-reader { display:none; margin:10px auto; width:100%; max-width:350px; }
 
-    /* Modal de confirmación */
-    .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.5);z-index:9999;padding:12px}
-    .modal-card{position:relative;background:#fff;width:100%;max-width:520px;border-radius:18px;padding:24px;box-shadow:var(--shadow);text-align:center;animation:pop .15s ease-out}
-    @keyframes pop{from{transform:scale(.98);opacity:.8}to{transform:scale(1);opacity:1}}
-    .modal-cancel{position:absolute;top:10px;right:10px;background:var(--cancel);border:none;color:#fff;border-radius:999px;padding:6px 10px;font-size:13px;cursor:pointer}
-    .mov-title{margin:0 0 6px 0;color:#111827;font-size:16px}
-    .bidon-giant{font-size:clamp(44px,12vw,72px);font-weight:800;letter-spacing:1px;color:#111827;margin:6px 0 2px}
-    .mov-sub{margin:0;color:var(--muted)}
-    .ubic-line{margin:8px 0 14px;color:#111827}
-    .confirm-btn{background:var(--ok);border:none;border-radius:12px;padding:14px 18px;font-size:18px;cursor:pointer;width:100%}
-
-    .foot{margin-top:10px;font-size:12px;color:#6b7280;word-break:break-all}
+    /* Modal */
+    .modal {position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.5);}
+    .modal-card {position:relative; background:#fff; padding:20px; border-radius:12px; text-align:center; max-width:400px; width:90%;}
+    .modal-cancel {position:absolute; top:8px; right:8px; font-size:14px; background:#ccc; border:none; border-radius:50%; padding:4px 8px; cursor:pointer;}
+    .bidon {font-size:48px; font-weight:bold; margin:20px 0;}
+    .mov {color:#27ae60; font-weight:bold; margin-bottom:20px;}
+    .btn-confirm {background:#27ae60; color:#fff; font-size:18px; padding:14px 22px; border:none; border-radius:8px; width:100%;}
   </style>
 </head>
 <body>
-  <header><h1>Entrega de Bidón</h1></header>
+  <h1>Entrega de Bidón</h1>
 
-  <main>
-    <div class="field">
-      <label for="email">Tu correo (obligatorio)</label>
-      <input type="email" id="email" placeholder="ejemplo@correo.com" />
-    </div>
+  <input type="email" id="email" placeholder="Tu correo (obligatorio)" />
+  <br>
+  <input type="number" id="codigo" placeholder="Código de bidón" />
+  <br>
+  <button class="btn-scan" onclick="iniciarEscaneo()">📷 Escanear QR</button>
+  <div id="qr-reader"></div>
+  <br>
+  <button class="btn-send" onclick="preConfirmar()">Enviar</button>
 
-    <div class="field">
-      <label for="ubicacion">Ubicación (obligatorio para Entrega)</label>
-      <input type="text" id="ubicacion" placeholder="Ej: Depósito Norte / Cliente X" />
-    </div>
+  <div id="mensaje"></div>
 
-    <div class="field">
-      <label for="codigo">Código de Bidón (solo números)</label>
-      <div class="row">
-        <input type="number" id="codigo" placeholder="Ej: 123" />
-        <button class="btn btn-scan" onclick="iniciarEscaneo()">📷 QR</button>
-      </div>
-      <div id="qr-reader"></div>
-      <p class="muted">Este formulario solo registra <strong>Entregado</strong>.</p>
-    </div>
-
-    <div class="field">
-      <button class="btn btn-entrega" onclick="preConfirmar()">Registrar Entrega</button>
-    </div>
-
-    <div id="mensaje"></div>
-
-    <div class="foot">
-      API: <span id="apiEcho"></span>
-    </div>
-  </main>
-
-  <!-- Modal de confirmación -->
-  <div id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+  <!-- Modal -->
+  <div id="modal" class="modal">
     <div class="modal-card">
-      <button class="modal-cancel" id="cancelar">Cancelar</button>
-      <p id="confirm-title" class="mov-title">Vas a registrar:</p>
-      <div class="bidon-giant" id="giantBidon">#—</div>
-      <p class="mov-sub">Movimiento: <strong>Entregado</strong></p>
-      <p class="ubic-line" id="modalUbic"></p>
-      <button id="confirmar" class="confirm-btn">Aceptar</button>
+      <button class="modal-cancel" onclick="cerrarModal()">✕</button>
+      <div class="bidon" id="modalBidon">#---</div>
+      <div class="mov">Entregado</div>
+      <button class="btn-confirm" onclick="confirmar()">Confirmar</button>
     </div>
   </div>
 
   <script>
-    // 🔧 PONÉ TU URL /exec ACÁ:
-    const API_URL = "https://script.google.com/macros/s/AKfycbzAEGG01rKGr-YqNNQjoue_7gMt8LNgqhP6mj4VC9JYI7-lmfties5GsC50K8Z8N3vu_A/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbzdeYQEr4LIKsfpvSEO6wQTz_pXnWZeAtDfGx1KzqTTTAc6GJVDK_WARQEYF8NShjYINg/exec";
+    let html5QrCode = null;
+    let coords = {lat:null, lon:null};
 
-    // Utilidades
-    function isValidEmail(email){
-      // Regex simple y suficiente para validación básica
-      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    // Pedir ubicación
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        pos => { coords.lat = pos.coords.latitude; coords.lon = pos.coords.longitude; },
+        err => console.warn("No se pudo obtener ubicación:", err),
+        { enableHighAccuracy:true }
+      );
     }
 
-    // Echo para verificar rápidamente que se configuró la API
-    document.addEventListener("DOMContentLoaded", () => {
-      document.getElementById("apiEcho").textContent = API_URL;
-      const savedEmail = localStorage.getItem("usuarioEmail");
-      if (savedEmail) document.getElementById("email").value = savedEmail;
-    });
-
-    document.getElementById("email").addEventListener("change", () => {
-      const email = document.getElementById("email").value.trim();
-      if (isValidEmail(email)) {
-        localStorage.setItem("usuarioEmail", email);
-      }
-    });
-
-    let html5QrCode = null;
-    async function iniciarEscaneo() {
+    function iniciarEscaneo() {
       const qrReader = document.getElementById("qr-reader");
       qrReader.style.display = "block";
-      try {
-        if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
-        await html5QrCode.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: 250 },
-          (decodedText) => {
-            if (/^\d+$/.test(decodedText)) {
-              document.getElementById("codigo").value = decodedText;
-              abrirConfirmacion();
-            } else {
-              alert("⚠️ El QR no contiene un número válido de bidón.");
-            }
-            html5QrCode.stop().then(() => { qrReader.style.display = "none"; });
-          },
-          (err) => console.log("Escaneo fallido:", err)
-        );
-      } catch (err) {
-        console.error("Error al iniciar cámara:", err);
+      if (!html5QrCode) html5QrCode = new Html5Qrcode("qr-reader");
+      html5QrCode.start(
+        { facingMode:"environment" },
+        { fps:10, qrbox:250 },
+        decodedText => {
+          if (/^\d+$/.test(decodedText)) {
+            document.getElementById("codigo").value = decodedText;
+            html5QrCode.stop(); qrReader.style.display = "none";
+          } else {
+            alert("⚠️ QR inválido");
+          }
+        }
+      ).catch(err => {
+        console.error("Error cámara:", err);
         qrReader.innerHTML = "<p class='error'>⚠️ No se pudo acceder a la cámara</p>";
-      }
+      });
     }
 
-    function preConfirmar(){
-      abrirConfirmacion();
-    }
-
-    function abrirConfirmacion(){
+    function preConfirmar() {
       const email = document.getElementById("email").value.trim();
       const codigo = document.getElementById("codigo").value.trim();
-      const ubic = document.getElementById("ubicacion").value.trim();
       const msgDiv = document.getElementById("mensaje");
       msgDiv.innerHTML = "";
-
-      if (!email || !isValidEmail(email)) {
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
         msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá un correo válido.</p>"; return;
       }
-      if (!codigo || !/^\d+$/.test(codigo)) {
-        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá un código numérico de bidón.</p>"; return;
+      if (!codigo) {
+        msgDiv.innerHTML = "<p class='error'>⚠️ Ingresá un código de bidón.</p>"; return;
       }
-      if (!ubic) {
-        msgDiv.innerHTML = "<p class='error'>⚠️ La ubicación es obligatoria para Entrega.</p>"; return;
-      }
-
-      localStorage.setItem("usuarioEmail", email);
-
-      document.getElementById("giantBidon").textContent = `#${codigo}`;
-      document.getElementById("modalUbic").textContent = `Ubicación: ${ubic}`;
-      const modal = document.getElementById("modal");
-      modal.style.display = "flex";
-      if (navigator.vibrate) navigator.vibrate(80);
-
-      const btn = document.getElementById("confirmar");
-      btn.onclick = () => confirmarEntrega(email, codigo, ubic);
+      document.getElementById("modalBidon").textContent = "#" + codigo;
+      document.getElementById("modal").style.display = "flex";
     }
 
-    document.getElementById("cancelar").addEventListener("click", () => {
+    function cerrarModal() {
       document.getElementById("modal").style.display = "none";
-    });
-    document.getElementById("modal").addEventListener("click", (e) => {
-      if (e.target.id === "modal") document.getElementById("modal").style.display = "none";
-    });
+    }
 
-    async function confirmarEntrega(email, codigo, ubicacion){
+    async function confirmar() {
+      cerrarModal();
+      const email = document.getElementById("email").value.trim();
+      const codigo = document.getElementById("codigo").value.trim();
       const msgDiv = document.getElementById("mensaje");
-      msgDiv.innerHTML = "";
-      document.getElementById("modal").style.display = "none";
-
+      msgDiv.innerHTML = "⏳ Enviando...";
       try {
         const resp = await fetch(API_URL, {
-          method: "POST",
-          headers: {"Content-Type":"application/json"},
-          body: JSON.stringify({
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
             id_bidon: codigo,
             tipo_movimiento: "Entregado",
             usuario: email,
-            ubicacion: ubicacion
+            ubicacion: `${coords.lat || ""},${coords.lon || ""}`
           })
         });
         const result = await resp.json();
-        if (result.status === "duplicate") {
-          msgDiv.innerHTML = `<p class="error">❌ ${result.message} (Último: ${result.last_mov} — ${result.last_ts})</p>`;
-          return;
-        }
         if (result.ok) {
           msgDiv.innerHTML = `<p class="ok">✅ ${result.message}</p>`;
           document.getElementById("codigo").value = "";
         } else {
-          msgDiv.innerHTML = `<p class="error">❌ ${result.error || "Ocurrió un error"}.</p>`;
+          msgDiv.innerHTML = `<p class="error">❌ ${result.error}</p>`;
         }
-      } catch (e) {
-        console.error(e);
+      } catch(err) {
+        console.error(err);
         msgDiv.innerHTML = "<p class='error'>⚠️ Error al conectar con el servidor.</p>";
       }
     }
