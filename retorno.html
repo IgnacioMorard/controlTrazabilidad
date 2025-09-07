@@ -75,7 +75,6 @@
     const API_URL = "https://script.google.com/macros/s/AKfycbzxfZFCMCEGRSt36k-m50Xpr0N-kw4SfQ_PcWRHTEBWVpqEnLlnotw9dGK8wOhfRhUXmA/exec";
 
     let html5QrCode = null;
-    let coords = {lat:null, lon:null};
     let scannerActive = false;
     let movimientoSel = "";
 
@@ -89,15 +88,6 @@
       const email = document.getElementById("email").value.trim();
       if (email) localStorage.setItem("usuarioEmail", email);
     });
-
-    // Pedir ubicación
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        pos => { coords.lat = pos.coords.latitude; coords.lon = pos.coords.longitude; },
-        err => console.warn("No se pudo obtener ubicación:", err),
-        { enableHighAccuracy:true }
-      );
-    }
 
     function iniciarEscaneo() {
       const qrReader = document.getElementById("qr-reader");
@@ -114,7 +104,7 @@
             document.getElementById("codigo").value = decodedText;
             html5QrCode.stop().then(() => {
               qrReader.style.display = "none";
-              abrirConfirmacion(); // abre modal automáticamente
+              abrirConfirmacion();
             });
             scannerActive = false;
           } else {
@@ -191,9 +181,8 @@
       msgDiv.textContent = "⏳ Enviando...";
 
       const movimiento = movimientoSel;
-      const ubicacion = `${coords.lat || ""},${coords.lon || ""}`;
 
-      const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}&ubicacion=${encodeURIComponent(ubicacion)}`;
+      const url = `${API_URL}?id_bidon=${encodeURIComponent(codigo)}&tipo_movimiento=${encodeURIComponent(movimiento)}&usuario=${encodeURIComponent(email)}`;
 
       try {
         const resp = await fetch(url);
@@ -201,26 +190,6 @@
         console.log("Respuesta cruda:", text);
         msgDiv.innerHTML = `<p class="ok">${text}</p>`;
         document.getElementById("codigo").value = "";
-
-        if (scannerActive && html5QrCode) {
-          const qrReader = document.getElementById("qr-reader");
-          qrReader.style.display = "block";
-          await html5QrCode.start(
-            { facingMode:"environment" },
-            { fps:10, qrbox:250 },
-            decodedText => {
-              if (/^\d+$/.test(decodedText)) {
-                document.getElementById("codigo").value = decodedText;
-                html5QrCode.stop().then(() => {
-                  qrReader.style.display = "none";
-                  abrirConfirmacion();
-                });
-                scannerActive = false;
-              }
-            }
-          );
-        }
-
       } catch(err) {
         console.error("Fetch error:", err);
         msgDiv.innerHTML = `<p class='error'>❌ Error en fetch: ${err.message}</p>`;
