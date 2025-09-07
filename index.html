@@ -123,6 +123,7 @@
       const codigo = document.getElementById("codigo").value.trim();
       const msgDiv = document.getElementById("mensaje");
       msgDiv.innerHTML = "⏳ Enviando...";
+
       try {
         const resp = await fetch(API_URL, {
           method:"POST",
@@ -134,16 +135,28 @@
             ubicacion: `${coords.lat || ""},${coords.lon || ""}`
           })
         });
-        const result = await resp.json();
+
+        let text = await resp.text(); // leemos crudo primero
+        console.log("Respuesta cruda:", text);
+
+        let result;
+        try {
+          result = JSON.parse(text);
+        } catch(parseErr) {
+          msgDiv.innerHTML = `<p class="error">❌ No se pudo parsear respuesta: ${parseErr.message}. Respuesta: ${text}</p>`;
+          return;
+        }
+
         if (result.ok) {
           msgDiv.innerHTML = `<p class="ok">✅ ${result.message}</p>`;
           document.getElementById("codigo").value = "";
         } else {
-          msgDiv.innerHTML = `<p class="error">❌ ${result.error}</p>`;
+          msgDiv.innerHTML = `<p class="error">❌ ${result.error || "Ocurrió un error"}</p>`;
         }
+
       } catch(err) {
-        console.error(err);
-        msgDiv.innerHTML = "<p class='error'>⚠️ Error al conectar con el servidor.</p>";
+        console.error("Fetch error:", err);
+        msgDiv.innerHTML = `<p class='error'>⚠️ Error al conectar con el servidor: ${err.message}</p>`;
       }
     }
   </script>
